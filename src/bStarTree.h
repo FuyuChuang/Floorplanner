@@ -15,7 +15,7 @@ using namespace std;
 // Doubly-linked list node
 class LNode
 {
-    friend class BStarTree;
+    friend class Floorplanner;
 
 private:
     // constructor and destructor
@@ -28,6 +28,12 @@ private:
     }
 
     void insertPrev(LNode* node) {
+        LNode* p = _prev;
+        _prev = node;
+        node->_prev = p;
+        node->_next = this;
+        if (p != NULL)
+            node->_prev->_next = node;
 
     }
 
@@ -35,14 +41,25 @@ private:
         LNode* n = _next;
         _next = node;
         node->_next = n;
+        node->_prev = this;
+        if (n != NULL)
+            node->_next->_prev = node;
+
     }
 
     void deletePrev() {
+        LNode* p = _prev;
+        _prev = _prev->_prev;
+        if (p->_prev != NULL)
+            p->_prev->_next = this;
 
     }
 
     void deleteNext() {
+        LNode* n = _next;
         _next = _next->_next;
+        if (n->_next != NULL)
+            n->_next->_prev = this;
     }
 
     LNode*      _prev;      // previous doubly-linked list node
@@ -56,8 +73,9 @@ private:
 class TNode
 {
     friend class BStarTree;
+    friend class Floorplanner;
 
-private:
+public:
     // constructor and destructor
     TNode(size_t id, bool orient = false, TNode* p = NULL, TNode* l = NULL, TNode* r = NULL) :
         _id(id), _orient(orient), _parent(p), _left(l), _right(r) { }
@@ -71,6 +89,7 @@ private:
     void rotate()           { _orient = !_orient; }
     void setId(size_t id)   { _id = id; }
 
+private:
     size_t      _id;        // id of the block storing in this node
     bool        _orient;    // record the orientation of the block (0: origin, 1: rotated)
     TNode*      _parent;    // parent of the node
@@ -81,8 +100,11 @@ private:
 
 class BStarTree
 {
+    friend class Floorplanner;
+
 public:
     // constructor and destructor
+    BStarTree();
     BStarTree(vector<Block*> blockList);
     BStarTree(const BStarTree& tree);
     BStarTree& operator = (const BStarTree& tree);
@@ -92,13 +114,11 @@ public:
     vector<BStarTree> perturb();
 
     // packing
-    void pack();
+    // void pack();
 
 private:
     TNode*          _root;          // root of the B*-tree
-    LNode*          _contour;       // contour list for packing
     vector<TNode*>  _nodeList;      // list of nodes in the tree
-    vector<LNode*>  _contourList;   // list of contours in the tree
 
     // private member functions
     void copyTree(TNode** nodePtr, const TNode* cNode, TNode* prev);

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <sstream>
 #include <cassert>
+#include <climits>
 #include "floorplanner.h"
 using namespace std;
 
@@ -31,7 +32,27 @@ void Floorplanner::readCircuit(fstream& inBlk, fstream& inNet)
 
 void Floorplanner::floorplan()
 {
+    vector<BStarTree> trees = _bestTree.perturb();
+    for (size_t i = 0, end = trees.size(); i < end; ++i) {
+        cout << trees[i]._nodeList.size() << endl;
+    }
+    _bestTree = trees[0];
+    this->packTree(_bestTree);
+    return;
+}
 
+void Floorplanner::packTree(BStarTree& tree)
+{
+    _contourList.clear();
+    _contourList.push_back(new LNode());
+    _contourList.back()->setPos(0, 0);
+    _contourList.push_back(new LNode());
+    _contourList.back()->setPos(INT_MAX, 0);
+    LNode* head = _contourList[0];
+    head->insertNext(_contourList[1]);
+    Block::setMaxX(0);
+    Block::setMaxY(0);
+    this->packBlock(tree._root, head);
     return;
 }
 
@@ -40,17 +61,23 @@ bool Floorplanner::checkFit()
     return ((Block::getMaxX() <= _width) && (Block::getMaxY() <= _height));
 }
 
+size_t Floorplanner::selectBestTree(vector<BStarTree>& trees)
+{
+
+    return 0;
+}
+
 void Floorplanner::printSummary() const
 {
     double wireLength = this->getHPWL();
     double area = this->getArea();
     cout << endl;
     cout << "==================== Summary ====================" << endl;
-    cout << " Cost: "   << _alpha * area + (1 - _alpha) * wireLength << endl;
-    cout << " Wire: "   << wireLength << endl;
-    cout << " Area: "   << area << endl;
-    cout << " Width: "  << Block::getMaxX() << endl;
-    cout << " Height: " << Block::getMaxY() << endl;
+    cout << " Cost: "   << fixed << _alpha * area + (1 - _alpha) * wireLength << endl;
+    cout << " Wire: "   << fixed << wireLength << endl;
+    cout << " Area: "   << fixed << area << endl;
+    cout << " Width: "  << Block::getMaxX() << " (limit = " << _width << ")" << endl;
+    cout << " Height: " << Block::getMaxY() << " (limit = " << _height << ")" << endl;
     cout << "=================================================" << endl;
     return;
 }
@@ -104,17 +131,17 @@ void Floorplanner::writeResult(fstream& outFile)
 
     // <final cost>
     buff << (_alpha * area + (1 - _alpha) * wireLength);
-    outFile << buff.str() << '\n';
+    outFile << fixed << buff.str() << '\n';
     buff.str("");
 
     // <total wirelength>
     buff << wireLength;
-    outFile << buff.str() << '\n';
+    outFile << fixed << buff.str() << '\n';
     buff.str("");
 
     // <chip_area>
     buff << area;
-    outFile << buff.str() << '\n';
+    outFile << fixed << buff.str() << '\n';
     buff.str("");
 
     // <chip_width> <chip_height>
@@ -223,5 +250,35 @@ void Floorplanner::readNet(fstream& inNet)
         }
     }
 
+    return;
+}
+
+void Floorplanner::packBlock(TNode* node, LNode* head)
+{
+    Block* block = _blockList[node->getId()];
+    size_t x = head->_x;
+    size_t prevY = head->_y, maxY = head->_y;
+    size_t width = block->getWidth(node->getOrient());
+    size_t height = block->getHeight(node->getOrient());
+    while (x + width > head->_next->_x) {
+        prevY = head->_next->_y;
+        maxY = (maxY > prevY)? maxY: prevY;
+        head->deleteNext();
+    }
+    block->setPos(x, maxY, x + width, maxY + height);
+    if (x + width > Block::getMaxX())
+        Block::setMaxX(x + width);
+    if (maxY + height > Block::getMaxY())
+        Block::setMaxY(maxY + height);
+    head->_y = maxY + height;
+    if (x + width < head->_next->_x) {
+        _contourList.push_back(new LNode());
+        _contourList.back()->setPos(x + width, prevY);
+        head->insertNext(_contourList.back());
+    }
+    if (node->_left != NULL)
+        packBlock(node->_left, head->_next);
+    if (node->_right != NULL)
+        packBlock(node->_right, head);
     return;
 }

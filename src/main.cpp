@@ -45,9 +45,11 @@ int main(int argc, char** argv)
     Floorplanner* fp = new Floorplanner(input_blk, input_net);
     fp->setAlpha(alpha);
     fp->floorplan();
+    /*
     fp->reportBlock();
     fp->reportTerm();
     fp->reportNet();
+    */
     fp->printSummary();
     fp->writeResult(output);
 

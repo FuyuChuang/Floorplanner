@@ -19,6 +19,7 @@ public:
     Floorplanner(fstream& inBlk, fstream& inNet) :
         _start(0), _stop(0) {
         readCircuit(inBlk, inNet);
+        _bestTree = BStarTree(_blockList);
     }
     ~Floorplanner() { }
 
@@ -39,7 +40,9 @@ public:
     // modify methods
     void readCircuit(fstream& inBlk, fstream& inNet);
     void floorplan();
+    void packTree(BStarTree& tree);
     bool checkFit();
+    size_t selectBestTree(vector<BStarTree>& trees);
 
     // member functions about reporting
     void printSummary() const;
@@ -49,22 +52,27 @@ public:
     void writeResult(fstream& outFile);
 
 private:
-    double              _alpha;     // cost weight of bbox and area
-    size_t              _width;     // chip width limit
-    size_t              _height;    // chip height limit
-    size_t              _blockNum;  // number of blocks
-    size_t              _termNum;   // number of terminals
-    size_t              _netNum;    // number of nets
-    clock_t             _start;     // starting time
-    clock_t             _stop;      // stopping time
-    vector<Block*>      _blockList; // list of blocks
-    vector<Terminal*>   _termList;  // list of terminals
-    vector<Net*>        _netList;   // list of nets
+    double              _alpha;         // cost weight of bbox and area
+    size_t              _width;         // chip width limit
+    size_t              _height;        // chip height limit
+    size_t              _blockNum;      // number of blocks
+    size_t              _termNum;       // number of terminals
+    size_t              _netNum;        // number of nets
+    clock_t             _start;         // starting time
+    clock_t             _stop;          // stopping time
+    BStarTree           _bestTree;      // best B*-tree
+    LNode*              _contour;       // contour list for packing
+    vector<LNode*>      _contourList;   // list of contour
+    vector<Block*>      _blockList;     // list of blocks
+    vector<Terminal*>   _termList;      // list of terminals
+    vector<Net*>        _netList;       // list of nets
 
     map<string, Terminal*>  _termName2Ptr;  // mapping from terminal name to its pointer
 
     // private member functions
     void readBlock(fstream& inBlk);
     void readNet(fstream& inNet);
+
+    void packBlock(TNode* node, LNode* head);
 };
 
