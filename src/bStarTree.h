@@ -12,19 +12,23 @@
 #include "module.h"
 using namespace std;
 
-// Linked list node
+// Doubly-linked list node
 class LNode
 {
     friend class BStarTree;
 
 private:
     // constructor and destructor
-    LNode(LNode* next = NULL) :
-        _next(next) { }
+    LNode(LNode* prev = NULL, LNode* next = NULL) :
+        _prev(prev), _next(next) { }
     ~LNode()    { }
 
     void setPos(size_t x, size_t y) {
         _x = x; _y = y;
+    }
+
+    void insertPrev(LNode* node) {
+
     }
 
     void insertNext(LNode* node) {
@@ -33,10 +37,15 @@ private:
         node->_next = n;
     }
 
+    void deletePrev() {
+
+    }
+
     void deleteNext() {
         _next = _next->_next;
     }
 
+    LNode*      _prev;      // previous doubly-linked list node
     LNode*      _next;      // next doubly-linked list node
     size_t      _x;         // coordinate x
     size_t      _y;         // coordinate y
@@ -80,10 +89,7 @@ public:
     ~BStarTree();
 
     // perturbing the B*-tree
-    void perturb();
-    void rotate();
-    void swapNodes();
-    void delAndInsert();
+    vector<BStarTree> perturb();
 
     // packing
     void pack();
@@ -97,6 +103,17 @@ private:
     // private member functions
     void copyTree(TNode** nodePtr, const TNode* cNode, TNode* prev);
     void clear();
+
+    // manipulating the B*-tree to get the "neighborhood structures"
+    void rotate(vector<BStarTree>& trees);
+    void swap(vector<BStarTree>& trees);
+    void delAndInsert(vector<BStarTree>& trees);
+
+    // manipulating the nodes
+    void swapNodes(int id1, int id2);
+    void rotateNode(int id);
+    void deleteNode(int id);
+    void insertNode(int id1, int id2, bool p_right, bool n_right);
 };
 
 
