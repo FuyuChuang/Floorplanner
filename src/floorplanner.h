@@ -2,7 +2,7 @@
   FileName  [ floorplanner.h ]
   Synopsis  [ Define an interface for floorplanning based on b*-tree. ]
   Author    [ Fu-Yu Chuang ]
-  Date      [ 2017.4.25 ]
+  Date      [ 2017.4.27 ]
 ****************************************************************************/
 #include <string>
 #include <vector>
@@ -33,6 +33,8 @@ public:
 
     size_t getArea() const      { return Block::getMaxX() * Block::getMaxY(); }
     double getHPWL() const;
+    // getting the cost inside the program, rather than the cost reported
+    double getCost(BStarTree& tree);
 
     // set functions
     void setAlpha(double alpha) { _alpha = alpha; }
@@ -42,7 +44,7 @@ public:
     void floorplan();
     void packTree(BStarTree& tree);
     bool checkFit();
-    size_t selectBestTree(vector<BStarTree>& trees);
+    size_t selectBestTree(vector<BStarTree>& trees, bool fit);
 
     // member functions about reporting
     void printSummary() const;

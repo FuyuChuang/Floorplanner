@@ -2,7 +2,7 @@
   FileName  [ bStarTree.h ]
   Synopsis  [ Define the B*-tree data structure. ]
   Author    [ Fu-Yu Chuang ]
-  Date      [ 2017.4.25 ]
+  Date      [ 2017.4.26 ]
 ****************************************************************************/
 #ifndef BSTARTREE_H
 #define BSTARTREE_H
@@ -19,14 +19,19 @@ class LNode
 
 private:
     // constructor and destructor
+    /*
     LNode(LNode* prev = NULL, LNode* next = NULL) :
         _prev(prev), _next(next) { }
+    */
+    LNode(LNode* next = NULL) :
+        _next(next) { }
     ~LNode()    { }
 
     void setPos(size_t x, size_t y) {
         _x = x; _y = y;
     }
 
+    /*
     void insertPrev(LNode* node) {
         LNode* p = _prev;
         _prev = node;
@@ -61,8 +66,19 @@ private:
         if (n->_next != NULL)
             n->_next->_prev = this;
     }
+    */
 
-    LNode*      _prev;      // previous doubly-linked list node
+    void insertNext(LNode* node) {
+        LNode* n = _next;
+        _next = node;
+        node->_next = n;
+    }
+
+    void deleteNext() {
+        _next = _next->_next;
+    }
+
+    // LNode*      _prev;      // previous doubly-linked list node
     LNode*      _next;      // next doubly-linked list node
     size_t      _x;         // coordinate x
     size_t      _y;         // coordinate y
@@ -86,8 +102,9 @@ public:
     bool   getOrient()  { return _orient; }
 
     // modify methods
-    void rotate()           { _orient = !_orient; }
-    void setId(size_t id)   { _id = id; }
+    void rotate()               { _orient = !_orient; }
+    void setId(size_t id)       { _id = id; }
+    void setOrient(bool orient) { _orient = orient; }
 
 private:
     size_t      _id;        // id of the block storing in this node
@@ -113,9 +130,6 @@ public:
     // perturbing the B*-tree
     vector<BStarTree> perturb();
 
-    // packing
-    // void pack();
-
 private:
     TNode*          _root;          // root of the B*-tree
     vector<TNode*>  _nodeList;      // list of nodes in the tree
@@ -135,6 +149,5 @@ private:
     void deleteNode(int id);
     void insertNode(int id1, int id2, bool p_right, bool n_right);
 };
-
 
 #endif  // BSTARTREE_H

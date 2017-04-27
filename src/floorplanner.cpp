@@ -2,13 +2,14 @@
   FileName  [ floorplanner.cpp ]
   Synopsis  [ Implementation of the floorplanner based on b*-tree. ]
   Author    [ Fu-Yu Chuang ]
-  Date      [ 2017.4.25 ]
+  Date      [ 2017.4.27 ]
 ****************************************************************************/
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 #include <cassert>
 #include <climits>
+#include <cmath>
 #include "floorplanner.h"
 using namespace std;
 
@@ -21,6 +22,29 @@ double Floorplanner::getHPWL() const
     return (HPWL / 2.0);
 }
 
+double Floorplanner::getCost(BStarTree& tree)
+{
+    double cost = 0;
+    this->packTree(tree);
+    size_t maxX = Block::getMaxX();
+    size_t maxY = Block::getMaxY();
+
+    if (maxX > _width)
+        cost += 1.0e8 * (maxX - _width);
+    if (maxY > _height)
+        cost += 1.0e8 * (maxY - _height);
+
+    cost += _alpha * maxX * maxY;
+    cost += (1 - _alpha) * this->getHPWL();
+    // cout << this->getHPWL() << endl;
+    /*
+    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
+        cout << _blockList[i]->getX1() << " " << _blockList[i]->getY1() << " "
+             << _blockList[i]->getX2() << " " << _blockList[i]->getY2() << endl;
+    }
+    */
+    return cost;
+}
 
 void Floorplanner::readCircuit(fstream& inBlk, fstream& inNet)
 {
@@ -32,12 +56,54 @@ void Floorplanner::readCircuit(fstream& inBlk, fstream& inNet)
 
 void Floorplanner::floorplan()
 {
-    vector<BStarTree> trees = _bestTree.perturb();
-    for (size_t i = 0, end = trees.size(); i < end; ++i) {
-        cout << trees[i]._nodeList.size() << endl;
+    srand(time(NULL));
+    _start = clock();
+    BStarTree tmpTree = _bestTree;
+
+    double cost = this->getCost(tmpTree), accCost = 0;
+    double r = 0.9, p = 0.95;
+    bool fit = false;
+
+    for (size_t i = 0; i < 100; ++i) {
+        vector<BStarTree> trees = tmpTree.perturb();
+        size_t best = this->selectBestTree(trees, fit);
+        double newCost = this->getCost(trees[best]);
+        tmpTree = trees[best];
+        accCost += (newCost - cost);
+        cost = newCost;
     }
-    _bestTree = trees[0];
-    this->packTree(_bestTree);
+
+    double T = abs((accCost / 100) / log(p));
+    cost = getCost(tmpTree);
+    double tmpCost = cost;
+    size_t P = 3000;
+
+    while (T > 1.0) {
+        for (size_t i = 0; i < P; ++i) {
+            vector<BStarTree> trees = tmpTree.perturb();
+            size_t best = this->selectBestTree(trees, fit);
+            double newCost = this->getCost(trees[best]);
+            if (!fit && this->checkFit()) fit = true;
+            if (fit && !this->checkFit()) continue;
+            double delta = newCost - cost;
+            if (delta <= 0 || (double)rand() / RAND_MAX < exp(-1 * delta / T)) {
+                tmpTree = trees[best];
+                cost = newCost;
+                if (cost < tmpCost) {
+                    _bestTree = tmpTree;
+                    tmpCost = cost;
+                }
+            }
+        }
+        T *= r;
+        cout << "T = " << T << ", cost = " << cost << "       \r";
+        cout.flush();
+    }
+    cost = this->getCost(_bestTree);
+    if (T > cost)
+        T = cost;
+    _stop = clock();
+
     return;
 }
 
@@ -53,6 +119,10 @@ void Floorplanner::packTree(BStarTree& tree)
     Block::setMaxX(0);
     Block::setMaxY(0);
     this->packBlock(tree._root, head);
+    for (size_t i = 0, end = _contourList.size(); i < end; ++i) {
+        delete _contourList[i];
+    }
+    _contourList.clear();
     return;
 }
 
@@ -61,10 +131,19 @@ bool Floorplanner::checkFit()
     return ((Block::getMaxX() <= _width) && (Block::getMaxY() <= _height));
 }
 
-size_t Floorplanner::selectBestTree(vector<BStarTree>& trees)
+size_t Floorplanner::selectBestTree(vector<BStarTree>& trees, bool fit)
 {
-
-    return 0;
+    double bestCost = this->getCost(trees[0]);
+    size_t best = 0;
+    for (size_t i = 1, end = trees.size(); i < end; ++i) {
+        double cost = this->getCost(trees[i]);
+        if (fit && !this->checkFit()) continue;
+        if (cost < bestCost) {
+            cost = bestCost;
+            best = i;
+        }
+    }
+    return best;
 }
 
 void Floorplanner::printSummary() const
@@ -78,6 +157,7 @@ void Floorplanner::printSummary() const
     cout << " Area: "   << fixed << area << endl;
     cout << " Width: "  << Block::getMaxX() << " (limit = " << _width << ")" << endl;
     cout << " Height: " << Block::getMaxY() << " (limit = " << _height << ")" << endl;
+    cout << " Time: "   << (double)(_stop - _start) / CLOCKS_PER_SEC << " secs" << endl;
     cout << "=================================================" << endl;
     return;
 }
@@ -130,19 +210,13 @@ void Floorplanner::writeResult(fstream& outFile)
     double area = this->getArea();
 
     // <final cost>
-    buff << (_alpha * area + (1 - _alpha) * wireLength);
-    outFile << fixed << buff.str() << '\n';
-    buff.str("");
+    outFile << fixed << (_alpha * area + (1 - _alpha) * wireLength) << '\n';
 
     // <total wirelength>
-    buff << wireLength;
-    outFile << fixed << buff.str() << '\n';
-    buff.str("");
+    outFile << fixed << wireLength << '\n';
 
     // <chip_area>
-    buff << area;
-    outFile << fixed << buff.str() << '\n';
-    buff.str("");
+    outFile << fixed << area << '\n';
 
     // <chip_width> <chip_height>
     buff << Block::getMaxX();

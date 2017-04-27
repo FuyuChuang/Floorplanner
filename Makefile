@@ -1,5 +1,5 @@
 CC=g++
-LDFLAGS=-std=c++11 -Wall -lm
+LDFLAGS=-std=c++11 -O3 -lm
 SOURCES=src/bStarTree.cpp src/floorplanner.cpp src/module.cpp src/main.cpp
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=Floorplanner

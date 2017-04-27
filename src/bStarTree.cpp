@@ -2,7 +2,7 @@
   FileName  [ bStarTree.cpp ]
   Synopsis  [ Implementation of the B*-tree. ]
   Author    [ Fu-Yu Chuang ]
-  Date      [ 2017.4.25 ]
+  Date      [ 2017.4.27 ]
 ****************************************************************************/
 #include <iostream>
 #include <cassert>
@@ -21,12 +21,13 @@ BStarTree::BStarTree(vector<Block*> blockList)
     for (size_t i = 1, end = blockList.size(); i < end; ++i) {
         _nodeList.push_back(new TNode(i));
         _nodeList[i]->_parent = _nodeList[i-1];
-        _nodeList[i-1]->_right = _nodeList[i];
+        _nodeList[i-1]->_left = _nodeList[i];
     }
 }
 
 BStarTree::BStarTree(const BStarTree& tree)
 {
+    this->clear();
     _nodeList.push_back(new TNode(tree._root->_id, tree._root->_orient));
     _root = _nodeList[0];
     this->copyTree(&(_root->_left), tree._root->_left, _root);
@@ -51,17 +52,21 @@ BStarTree::~BStarTree()
 vector<BStarTree> BStarTree::perturb()
 {
     vector<BStarTree> trees;
-    srand(time(NULL));
+    /*
     if (rand() % 3 == 0) {
-        // cout << "rotate" << endl;
         this->rotate(trees);
     }
     else if (rand() % 3 == 1) {
-        // cout << "swap" << endl;
         this->swap(trees);
     }
     else {
-        // cout << "del" << endl;
+        this->delAndInsert(trees);
+    }
+    */
+    if (rand() % 2 == 1) {
+        this->swap(trees);
+    }
+    else {
         this->delAndInsert(trees);
     }
     return trees;
@@ -95,6 +100,7 @@ void BStarTree::rotate(vector<BStarTree>& trees)
     trees.push_back(*(this));
     int id = rand() % _nodeList.size();
     trees.back().rotateNode(id);
+    // cout << "Rotate " << id << endl;
     return;
 }
 
@@ -115,6 +121,7 @@ void BStarTree::swap(vector<BStarTree>& trees)
             trees.back().swapNodes(id1, id2);
         }
     }
+    // cout << "Swap " << id1 << " & " << id2 << endl;
     return;
 }
 
@@ -136,6 +143,7 @@ void BStarTree::delAndInsert(vector<BStarTree>& trees)
             }
         }
     }
+    // cout << "Delete " << id1 << " and insert to " << id2 << endl;
     return;
 }
 
@@ -143,7 +151,13 @@ void BStarTree::swapNodes(int id1, int id2)
 {
     TNode* node1 = _nodeList[id1];
     TNode* node2 = _nodeList[id2];
+    bool orient1 = node1->getOrient();
+    node1->setOrient(node2->getOrient());
+    node1->setId(id2);
+    node2->setOrient(orient1);
+    node2->setId(id1);
 
+    /*
     if (node1 == _root)
         _root = node2;
     else if (node2 == _root)
@@ -240,7 +254,7 @@ void BStarTree::swapNodes(int id1, int id2)
         if (r2 != NULL)
             r2->_parent = node1;
     }
-
+    */
     return;
 }
 
@@ -302,11 +316,16 @@ void BStarTree::deleteNode(int id)
                 TNode* p = node->_parent;
                 TNode* l = node->_left;
                 TNode* r = node->_right;
+                assert(p != NULL);
+                assert(l != NULL);
+                assert(r != NULL);
                 node->_parent = l;
                 node->_left = l->_left;
                 node->_right = l->_right;
-                l->_left->_parent = node;
-                l->_right->_parent = node;
+                if (l->_left != NULL)
+                    l->_left->_parent = node;
+                if (l->_right != NULL)
+                    l->_right->_parent = node;
                 l->_left = node;
                 l->_right = r;
                 l->_parent = p;
@@ -349,8 +368,10 @@ void BStarTree::deleteNode(int id)
                 node->_parent = l;
                 node->_left = l->_left;
                 node->_right = l->_right;
-                l->_left->_parent = node;
-                l->_right->_parent = node;
+                if (l->_left != NULL)
+                    l->_left->_parent = node;
+                if (l->_right != NULL)
+                    l->_right->_parent = node;
                 l->_left = node;
                 l->_right = r;
                 l->_parent = p;
