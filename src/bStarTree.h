@@ -19,10 +19,6 @@ class LNode
 
 private:
     // constructor and destructor
-    /*
-    LNode(LNode* prev = NULL, LNode* next = NULL) :
-        _prev(prev), _next(next) { }
-    */
     LNode(LNode* next = NULL) :
         _next(next) { }
     ~LNode()    { }
@@ -31,43 +27,6 @@ private:
         _x = x; _y = y;
     }
 
-    /*
-    void insertPrev(LNode* node) {
-        LNode* p = _prev;
-        _prev = node;
-        node->_prev = p;
-        node->_next = this;
-        if (p != NULL)
-            node->_prev->_next = node;
-
-    }
-
-    void insertNext(LNode* node) {
-        LNode* n = _next;
-        _next = node;
-        node->_next = n;
-        node->_prev = this;
-        if (n != NULL)
-            node->_next->_prev = node;
-
-    }
-
-    void deletePrev() {
-        LNode* p = _prev;
-        _prev = _prev->_prev;
-        if (p->_prev != NULL)
-            p->_prev->_next = this;
-
-    }
-
-    void deleteNext() {
-        LNode* n = _next;
-        _next = _next->_next;
-        if (n->_next != NULL)
-            n->_next->_prev = this;
-    }
-    */
-
     void insertNext(LNode* node) {
         LNode* n = _next;
         _next = node;
@@ -78,11 +37,37 @@ private:
         _next = _next->_next;
     }
 
-    // LNode*      _prev;      // previous doubly-linked list node
     LNode*      _next;      // next doubly-linked list node
     size_t      _x;         // coordinate x
     size_t      _y;         // coordinate y
 };
+/*
+class LNode
+{
+public:
+    LNode()     { }
+    ~LNode()    { }
+
+    size_t getX()   { return _x; }
+    size_t getY()   { return _y; }
+
+    void setPos(size_t x, size_t y) {
+        _x = x; _y = y;
+    }
+
+    void setY(size_t y) {
+        _y = y;
+    }
+
+    void setX(size_t x) {
+        _x = x;
+    }
+
+private:
+    size_t      _x;     // coordinate x
+    size_t      _y;     // cooridnate y
+};
+*/
 
 
 // B*-tree node

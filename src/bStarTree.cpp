@@ -20,8 +20,20 @@ BStarTree::BStarTree(vector<Block*> blockList)
     _root = _nodeList[0];
     for (size_t i = 1, end = blockList.size(); i < end; ++i) {
         _nodeList.push_back(new TNode(i));
+        /*
         _nodeList[i]->_parent = _nodeList[i-1];
-        _nodeList[i-1]->_left = _nodeList[i];
+        _nodeList[i-1]->_right = _nodeList[i];
+        */
+        if (i % 2 == 0) {
+            _nodeList[i]->_parent = _nodeList[i/2-1];
+            assert(_nodeList[i/2-1]->_right == NULL);
+            _nodeList[i/2-1]->_right = _nodeList[i];
+        }
+        else {
+            _nodeList[i]->_parent = _nodeList[i/2];
+            assert(_nodeList[i/2]->_left == NULL);
+            _nodeList[i/2]->_left = _nodeList[i];
+        }
     }
 }
 
@@ -55,19 +67,17 @@ vector<BStarTree> BStarTree::perturb()
     /*
     if (rand() % 3 == 0) {
         this->rotate(trees);
+        // cout << "rotate" << endl;
     }
     else if (rand() % 3 == 1) {
-        this->swap(trees);
-    }
-    else {
-        this->delAndInsert(trees);
-    }
     */
-    if (rand() % 2 == 1) {
+    if (rand() % 3 <= 1) {
         this->swap(trees);
+        // cout << "swap" << endl;
     }
     else {
         this->delAndInsert(trees);
+        // cout << "del" << endl;
     }
     return trees;
 }
@@ -151,110 +161,14 @@ void BStarTree::swapNodes(int id1, int id2)
 {
     TNode* node1 = _nodeList[id1];
     TNode* node2 = _nodeList[id2];
+    int b_id1 = node1->getId();
+    int b_id2 = node2->getId();
     bool orient1 = node1->getOrient();
     node1->setOrient(node2->getOrient());
-    node1->setId(id2);
+    node1->setId(b_id1);
     node2->setOrient(orient1);
-    node2->setId(id1);
+    node2->setId(b_id2);
 
-    /*
-    if (node1 == _root)
-        _root = node2;
-    else if (node2 == _root)
-        _root = node1;
-
-    TNode* p1 = node1->_parent;
-    TNode* p2 = node2->_parent;
-    TNode* l1 = node1->_left;
-    TNode* l2 = node2->_left;
-    TNode* r1 = node1->_right;
-    TNode* r2 = node2->_right;
-
-    if (node1->_parent != node2 && node2->_parent != node1) {
-        node1->_parent = p2;
-        node2->_parent = p1;
-        node1->_left = l2;
-        node2->_left = l1;
-        node1->_right = r2;
-        node2->_right = r1;
-        if (p1 != NULL) {
-            if (p1->_left == node1)
-                p1->_left = node2;
-            else
-                p1->_right = node2;
-        }
-        if (p2 != NULL) {
-            if (p2->_left == node2)
-                p2->_left = node1;
-            else
-                p2->_right = node1;
-        }
-        if (l1 != NULL)
-            l1->_parent = node2;
-        if (r1 != NULL)
-            r1->_parent = node2;
-        if (l2 != NULL)
-            l2->_parent = node1;
-        if (r2 != NULL)
-            r2->_parent = node1;
-    }
-    else if (node1->_parent == node2) {
-        node1->_parent = p2;
-        node2->_parent = node1;
-        if (node2->_left == node1) {
-            node1->_left = node2;
-            node1->_right = r2;
-            if (r2 != NULL)
-                r2->_parent = node1;
-        }
-        else {
-            node1->_right = node2;
-            node1->_left = l2;
-            if (l2 != NULL)
-                l2->_parent = node1;
-        }
-        node2->_left = l1;
-        node2->_right = r1;
-        if (p2 != NULL) {
-            if (p2->_left == node2)
-                p2->_left = node1;
-            else
-                p2->_right = node1;
-        }
-        if (l1 != NULL)
-            l1->_parent = node2;
-        if (r1 != NULL)
-            r1->_parent = node2;
-    }
-    else if (node2->_parent == node1) {
-        node2->_parent = p1;
-        node1->_parent = node2;
-        if (node1->_left == node2) {
-            node2->_left = node1;
-            node2->_right = r1;
-            if (r1 != NULL)
-                r1->_parent = node2;
-        }
-        else {
-            node2->_right = node1;
-            node2->_left = l1;
-            if (l1 != NULL)
-                l1->_parent = node1;
-        }
-        node1->_left = l2;
-        node1->_right = r2;
-        if (p1 != NULL) {
-            if (p1->_left == node1)
-                p1->_left = node2;
-            else
-                p1->_right = node2;
-        }
-        if (l2 != NULL)
-            l2->_parent = node1;
-        if (r2 != NULL)
-            r2->_parent = node1;
-    }
-    */
     return;
 }
 
@@ -342,7 +256,6 @@ void BStarTree::deleteNode(int id)
             }
         }
         else {
-            // cout << "Delete root!" << endl;
             if (node->_left == NULL && node->_right == NULL) {
                 cout << "Not possible" << endl;
                 break;

@@ -9,9 +9,14 @@
 #include <sstream>
 #include <cassert>
 #include <climits>
+#include <iterator>
 #include <cmath>
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include "floorplanner.h"
 using namespace std;
+using namespace cv;
 
 double Floorplanner::getHPWL() const
 {
@@ -35,7 +40,7 @@ double Floorplanner::getCost(BStarTree& tree)
         cost += 1.0e8 * (maxY - _height);
 
     cost += _alpha * maxX * maxY;
-    cost += (1 - _alpha) * this->getHPWL();
+    // cost += (1 - _alpha) * this->getHPWL();
     // cout << this->getHPWL() << endl;
     /*
     for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
@@ -44,6 +49,15 @@ double Floorplanner::getCost(BStarTree& tree)
     }
     */
     return cost;
+}
+
+size_t Floorplanner::getModuleArea() const
+{
+    size_t area = 0;
+    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
+        area += _blockList[i]->getArea();
+    }
+    return area;
 }
 
 void Floorplanner::readCircuit(fstream& inBlk, fstream& inNet)
@@ -61,7 +75,7 @@ void Floorplanner::floorplan()
     BStarTree tmpTree = _bestTree;
 
     double cost = this->getCost(tmpTree), accCost = 0;
-    double r = 0.9, p = 0.95;
+    double r = 0.9, p = 0.99;
     bool fit = false;
 
     for (size_t i = 0; i < 100; ++i) {
@@ -75,6 +89,7 @@ void Floorplanner::floorplan()
 
     double T = abs((accCost / 100) / log(p));
     cost = getCost(tmpTree);
+    _bestTree = tmpTree;
     double tmpCost = cost;
     size_t P = 3000;
 
@@ -99,10 +114,41 @@ void Floorplanner::floorplan()
         cout << "T = " << T << ", cost = " << cost << "       \r";
         cout.flush();
     }
-    cost = this->getCost(_bestTree);
-    if (T > cost)
-        T = cost;
     _stop = clock();
+
+    cost = this->getCost(_bestTree);
+
+    // opencv drawing
+    // image(row, column, channel)
+    // Mat image(_height, _width, CV_8UC3);
+    Mat image;
+    size_t maxY = (Block::getMaxY() > _height)? Block::getMaxY(): _height;
+    size_t maxX = (Block::getMaxX() > _width)? Block::getMaxX(): _width;
+    if (fit) {
+        image = Mat(_height, _width, CV_8UC3);
+    }
+    else {
+        image = Mat(maxY, maxX, CV_8UC3);
+    }
+    size_t height = (_height > Block::getMaxY())? _height: Block::getMaxY();
+    image.setTo(Scalar(255, 255, 255));
+    cout << endl;
+    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
+        size_t x1 = _blockList[i]->getX1();
+        size_t y1 = height - _blockList[i]->getY1();
+        size_t x2 = _blockList[i]->getX2();
+        size_t y2 = height - _blockList[i]->getY2();
+        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 255, 255), -1, 8);
+        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 128, 0), 3, 8);
+        cout << _blockList[i]->getName() << " " << _blockList[i]->getX1() << " "
+             << _blockList[i]->getY1() << " " << _blockList[i]->getX2() << " "
+             << _blockList[i]->getY2() << endl;
+        putText(image, _blockList[i]->getName(), Point(x1 + 3, y1 - 5), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 128, 0));
+    }
+    if (!fit) {
+        rectangle(image, Point(0, maxY), Point(_width, maxY -_height), Scalar(0, 0, 255), 5, 8);
+    }
+    imwrite("floorplan.jpg", image);
 
     return;
 }
@@ -122,7 +168,6 @@ void Floorplanner::packTree(BStarTree& tree)
     for (size_t i = 0, end = _contourList.size(); i < end; ++i) {
         delete _contourList[i];
     }
-    _contourList.clear();
     return;
 }
 
@@ -157,6 +202,7 @@ void Floorplanner::printSummary() const
     cout << " Area: "   << fixed << area << endl;
     cout << " Width: "  << Block::getMaxX() << " (limit = " << _width << ")" << endl;
     cout << " Height: " << Block::getMaxY() << " (limit = " << _height << ")" << endl;
+    cout << " Dead space: " << fixed << (area - this->getModuleArea()) << endl;
     cout << " Time: "   << (double)(_stop - _start) / CLOCKS_PER_SEC << " secs" << endl;
     cout << "=================================================" << endl;
     return;
@@ -329,6 +375,7 @@ void Floorplanner::readNet(fstream& inNet)
 
 void Floorplanner::packBlock(TNode* node, LNode* head)
 {
+    // cout << node->getId() << " ";
     Block* block = _blockList[node->getId()];
     size_t x = head->_x;
     size_t prevY = head->_y, maxY = head->_y;

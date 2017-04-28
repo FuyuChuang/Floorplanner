@@ -53,6 +53,7 @@ public:
     // basic access methods
     const size_t getWidth(bool rotate = false)  { return rotate? _h: _w; }
     const size_t getHeight(bool rotate = false) { return rotate? _w: _h; }
+    const size_t getArea()  { return _h * _w; }
     static size_t getMaxX() { return _maxX; }
     static size_t getMaxY() { return _maxY; }
 

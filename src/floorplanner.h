@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <list>
 #include <map>
 #include "module.h"
 #include "bStarTree.h"
@@ -35,6 +36,7 @@ public:
     double getHPWL() const;
     // getting the cost inside the program, rather than the cost reported
     double getCost(BStarTree& tree);
+    size_t getModuleArea() const;
 
     // set functions
     void setAlpha(double alpha) { _alpha = alpha; }
@@ -63,7 +65,7 @@ private:
     clock_t             _start;         // starting time
     clock_t             _stop;          // stopping time
     BStarTree           _bestTree;      // best B*-tree
-    LNode*              _contour;       // contour list for packing
+    // list<LNode>         _contourList;
     vector<LNode*>      _contourList;   // list of contour
     vector<Block*>      _blockList;     // list of blocks
     vector<Terminal*>   _termList;      // list of terminals
@@ -76,5 +78,6 @@ private:
     void readNet(fstream& inNet);
 
     void packBlock(TNode* node, LNode* head);
+    // void packBlock(TNode* node, int contourPos);
 };
 
