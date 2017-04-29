@@ -39,15 +39,11 @@ double Floorplanner::getCost(BStarTree& tree)
     if (maxY > _height)
         cost += 1.0e8 * (maxY - _height);
 
+    cost += 1.0e6 * abs((double(_width) / _height) - (double(maxX) / maxY));
+
     cost += _alpha * maxX * maxY;
-    // cost += (1 - _alpha) * this->getHPWL();
-    // cout << this->getHPWL() << endl;
-    /*
-    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
-        cout << _blockList[i]->getX1() << " " << _blockList[i]->getY1() << " "
-             << _blockList[i]->getX2() << " " << _blockList[i]->getY2() << endl;
-    }
-    */
+    if (this->checkFit())
+        cost += (1 - _alpha) * this->getHPWL();
     return cost;
 }
 
@@ -70,87 +66,80 @@ void Floorplanner::readCircuit(fstream& inBlk, fstream& inNet)
 
 void Floorplanner::floorplan()
 {
-    srand(time(NULL));
+    double bestCost = this->getCost(_bestTree);
+    bool fit = this->checkFit();
+    int trial = 0;
     _start = clock();
-    BStarTree tmpTree = _bestTree;
-
-    double cost = this->getCost(tmpTree), accCost = 0;
-    double r = 0.9, p = 0.99;
-    bool fit = false;
-
-    for (size_t i = 0; i < 100; ++i) {
-        vector<BStarTree> trees = tmpTree.perturb();
-        size_t best = this->selectBestTree(trees, fit);
-        double newCost = this->getCost(trees[best]);
-        tmpTree = trees[best];
-        accCost += (newCost - cost);
-        cost = newCost;
-    }
-
-    double T = abs((accCost / 100) / log(p));
-    cost = getCost(tmpTree);
-    _bestTree = tmpTree;
-    double tmpCost = cost;
-    size_t P = 3000;
-
-    while (T > 1.0) {
-        for (size_t i = 0; i < P; ++i) {
-            vector<BStarTree> trees = tmpTree.perturb();
-            size_t best = this->selectBestTree(trees, fit);
-            double newCost = this->getCost(trees[best]);
-            if (!fit && this->checkFit()) fit = true;
-            if (fit && !this->checkFit()) continue;
-            double delta = newCost - cost;
-            if (delta <= 0 || (double)rand() / RAND_MAX < exp(-1 * delta / T)) {
-                tmpTree = trees[best];
-                cost = newCost;
-                if (cost < tmpCost) {
-                    _bestTree = tmpTree;
-                    tmpCost = cost;
-                }
-            }
+    while (!fit) {
+        ++trial;
+        BStarTree tmpBestTree = this->floorplanSA();
+        double cost = this->getCost(tmpBestTree);
+        fit = this->checkFit();
+        if (bestCost > cost) {
+            _bestTree = tmpBestTree;
+            bestCost = cost;
         }
-        T *= r;
-        cout << "T = " << T << ", cost = " << cost << "       \r";
-        cout.flush();
+        cout << "Trial #" << trial << endl;
     }
     _stop = clock();
+    this->packTree(_bestTree);
+    this->drawFloorplan(_bestTree);
 
-    cost = this->getCost(_bestTree);
-
-    // opencv drawing
-    // image(row, column, channel)
-    // Mat image(_height, _width, CV_8UC3);
-    Mat image;
-    size_t maxY = (Block::getMaxY() > _height)? Block::getMaxY(): _height;
-    size_t maxX = (Block::getMaxX() > _width)? Block::getMaxX(): _width;
-    if (fit) {
-        image = Mat(_height, _width, CV_8UC3);
-    }
-    else {
-        image = Mat(maxY, maxX, CV_8UC3);
-    }
-    size_t height = (_height > Block::getMaxY())? _height: Block::getMaxY();
-    image.setTo(Scalar(255, 255, 255));
-    cout << endl;
-    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
-        size_t x1 = _blockList[i]->getX1();
-        size_t y1 = height - _blockList[i]->getY1();
-        size_t x2 = _blockList[i]->getX2();
-        size_t y2 = height - _blockList[i]->getY2();
-        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 255, 255), -1, 8);
-        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 128, 0), 3, 8);
-        cout << _blockList[i]->getName() << " " << _blockList[i]->getX1() << " "
-             << _blockList[i]->getY1() << " " << _blockList[i]->getX2() << " "
-             << _blockList[i]->getY2() << endl;
-        putText(image, _blockList[i]->getName(), Point(x1 + 3, y1 - 5), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 128, 0));
-    }
-    if (!fit) {
-        rectangle(image, Point(0, maxY), Point(_width, maxY -_height), Scalar(0, 0, 255), 5, 8);
-    }
-    imwrite("floorplan.jpg", image);
 
     return;
+}
+
+BStarTree Floorplanner::floorplanSA()
+{
+    srand(time(NULL));
+
+    // setup trees and costs
+    BStarTree prevTree = _bestTree;
+    BStarTree tmpBestTree = _bestTree;
+    double prevCost = this->getCost(prevTree);
+    double tmpBestCost = prevCost;
+
+    // setup parameters for annealing
+    bool fit = this->checkFit();
+    double accCost = 0;
+    double r = 0.90, p = 0.95;
+    size_t P = _blockList.size() * 100;
+    double T = prevCost;
+
+    // simulated annealing
+    while (T > 1.0) {
+        // for each temperature, find P neighbors
+        for (size_t i = 0; i < P; ++i) {
+            vector<BStarTree> trees = prevTree.perturb();
+            size_t best = this->selectBestTree(trees, fit);
+            if (!fit && this->checkFit())
+                fit = true;
+            double newCost = this->getCost(trees[best]);
+            double delta = newCost - prevCost;
+            // downhill move
+            if (delta <= 0) {
+                prevTree = trees[best];
+                prevCost = newCost;
+                if (prevCost < tmpBestCost) {
+                    tmpBestTree = prevTree;
+                    tmpBestCost = prevCost;
+                }
+            }
+            // uphill move
+            else if (((double)rand() / RAND_MAX) < exp(-1 * delta / T)) {
+                prevTree = trees[best];
+                prevCost = newCost;
+            }
+            else {
+                // do not accept this neighbor tree
+            }
+        }
+        cout << fixed << setprecision(2) << "T = " << T << ", cost = " << prevCost << "       \r";
+        cout.flush();
+        T *= r;
+    }
+
+    return tmpBestTree;
 }
 
 void Floorplanner::packTree(BStarTree& tree)
@@ -287,6 +276,75 @@ void Floorplanner::writeResult(fstream& outFile)
     return;
 }
 
+void Floorplanner::drawFloorplan(BStarTree& tree)
+{
+    // opencv drawing
+    // image(row, column, channel)
+    // Mat image(_height, _width, CV_8UC3);
+    this->packTree(tree);
+    Mat image;
+    size_t maxY = (Block::getMaxY() > _height)? Block::getMaxY(): _height;
+    size_t maxX = (Block::getMaxX() > _width)? Block::getMaxX(): _width;
+    if (this->checkFit()) {
+        image = Mat(_height, _width, CV_8UC3);
+    }
+    else {
+        image = Mat(maxY, maxX, CV_8UC3);
+    }
+    size_t height = (_height > Block::getMaxY())? _height: Block::getMaxY();
+    image.setTo(Scalar(255, 255, 255));
+    cout << endl;
+    for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
+        size_t x1 = _blockList[i]->getX1();
+        size_t y1 = height - _blockList[i]->getY1();
+        size_t x2 = _blockList[i]->getX2();
+        size_t y2 = height - _blockList[i]->getY2();
+        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 255, 255), -1, 8);
+        rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 128, 0), 3, 8);
+        cout << _blockList[i]->getName() << " " << _blockList[i]->getX1() << " "
+             << _blockList[i]->getY1() << " " << _blockList[i]->getX2() << " "
+             << _blockList[i]->getY2() << endl;
+        putText(image, _blockList[i]->getName(), Point(x1 + 3, y1 - 5), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 128, 0));
+    }
+    if (!this->checkFit()) {
+        rectangle(image, Point(0, maxY), Point(_width, maxY -_height), Scalar(0, 0, 255), 5, 8);
+    }
+    imwrite("floorplan.jpg", image);
+
+    return;
+}
+
+void Floorplanner::packBlock(TNode* node, LNode* head)
+{
+    // cout << node->getId() << " ";
+    Block* block = _blockList[node->getId()];
+    size_t x = head->_x;
+    size_t prevY = head->_y, maxY = head->_y;
+    size_t width = block->getWidth(node->getOrient());
+    size_t height = block->getHeight(node->getOrient());
+    while (x + width > head->_next->_x) {
+        prevY = head->_next->_y;
+        maxY = (maxY > prevY)? maxY: prevY;
+        head->deleteNext();
+    }
+    block->setPos(x, maxY, x + width, maxY + height);
+    if (x + width > Block::getMaxX())
+        Block::setMaxX(x + width);
+    if (maxY + height > Block::getMaxY())
+        Block::setMaxY(maxY + height);
+    head->_y = maxY + height;
+    if (x + width < head->_next->_x) {
+        _contourList.push_back(new LNode());
+        _contourList.back()->setPos(x + width, prevY);
+        head->insertNext(_contourList.back());
+    }
+    if (node->_left != NULL)
+        packBlock(node->_left, head->_next);
+    if (node->_right != NULL)
+        packBlock(node->_right, head);
+    return;
+}
+
 // private member functions
 void Floorplanner::readBlock(fstream& inBlk)
 {
@@ -373,33 +431,3 @@ void Floorplanner::readNet(fstream& inNet)
     return;
 }
 
-void Floorplanner::packBlock(TNode* node, LNode* head)
-{
-    // cout << node->getId() << " ";
-    Block* block = _blockList[node->getId()];
-    size_t x = head->_x;
-    size_t prevY = head->_y, maxY = head->_y;
-    size_t width = block->getWidth(node->getOrient());
-    size_t height = block->getHeight(node->getOrient());
-    while (x + width > head->_next->_x) {
-        prevY = head->_next->_y;
-        maxY = (maxY > prevY)? maxY: prevY;
-        head->deleteNext();
-    }
-    block->setPos(x, maxY, x + width, maxY + height);
-    if (x + width > Block::getMaxX())
-        Block::setMaxX(x + width);
-    if (maxY + height > Block::getMaxY())
-        Block::setMaxY(maxY + height);
-    head->_y = maxY + height;
-    if (x + width < head->_next->_x) {
-        _contourList.push_back(new LNode());
-        _contourList.back()->setPos(x + width, prevY);
-        head->insertNext(_contourList.back());
-    }
-    if (node->_left != NULL)
-        packBlock(node->_left, head->_next);
-    if (node->_right != NULL)
-        packBlock(node->_right, head);
-    return;
-}

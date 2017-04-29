@@ -44,6 +44,7 @@ public:
     // modify methods
     void readCircuit(fstream& inBlk, fstream& inNet);
     void floorplan();
+    BStarTree floorplanSA();
     void packTree(BStarTree& tree);
     bool checkFit();
     size_t selectBestTree(vector<BStarTree>& trees, bool fit);
@@ -54,6 +55,7 @@ public:
     void reportTerm()   const;
     void reportNet()    const;
     void writeResult(fstream& outFile);
+    void drawFloorplan(BStarTree& tree);
 
 private:
     double              _alpha;         // cost weight of bbox and area
@@ -65,7 +67,6 @@ private:
     clock_t             _start;         // starting time
     clock_t             _stop;          // stopping time
     BStarTree           _bestTree;      // best B*-tree
-    // list<LNode>         _contourList;
     vector<LNode*>      _contourList;   // list of contour
     vector<Block*>      _blockList;     // list of blocks
     vector<Terminal*>   _termList;      // list of terminals
@@ -74,10 +75,10 @@ private:
     map<string, Terminal*>  _termName2Ptr;  // mapping from terminal name to its pointer
 
     // private member functions
+    void packBlock(TNode* node, LNode* head);
+
     void readBlock(fstream& inBlk);
     void readNet(fstream& inNet);
 
-    void packBlock(TNode* node, LNode* head);
-    // void packBlock(TNode* node, int contourPos);
 };
 

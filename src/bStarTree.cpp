@@ -15,7 +15,6 @@ BStarTree::BStarTree()
 }
 BStarTree::BStarTree(vector<Block*> blockList)
 {
-    // initial solution is a line...
     _nodeList.push_back(new TNode(0));
     _root = _nodeList[0];
     for (size_t i = 1, end = blockList.size(); i < end; ++i) {
@@ -64,14 +63,12 @@ BStarTree::~BStarTree()
 vector<BStarTree> BStarTree::perturb()
 {
     vector<BStarTree> trees;
-    /*
-    if (rand() % 3 == 0) {
+    size_t r = rand();
+    if (r % 5 == 0) {
         this->rotate(trees);
         // cout << "rotate" << endl;
     }
-    else if (rand() % 3 == 1) {
-    */
-    if (rand() % 3 <= 1) {
+    else if (r % 5 <= 2) {
         this->swap(trees);
         // cout << "swap" << endl;
     }
