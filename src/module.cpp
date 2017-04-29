@@ -5,7 +5,6 @@
   Date      [ 2017.4.24 ]
 ****************************************************************************/
 #include <climits>
-#include <iostream>
 #include "module.h"
 using namespace std;
 
@@ -28,11 +27,6 @@ size_t Block::_maxY = 0;
 size_t Net::calcHPWL()
 {
     size_t minX = INT_MAX, minY = INT_MAX, maxX = 0, maxY = 0;
-    /*
-    size_t minX, maxX, minY, maxY;
-    minX = maxX = _termList[0]->getX1() + _termList[0]->getX2();
-    minY = maxY = _termList[0]->getY1() + _termList[0]->getY2();
-    */
     for (size_t i = 0, end = _termList.size(); i < end; ++i) {
         size_t x = _termList[i]->getX1() + _termList[i]->getX2();
         size_t y = _termList[i]->getY1() + _termList[i]->getY2();

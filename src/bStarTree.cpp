@@ -13,16 +13,13 @@ BStarTree::BStarTree()
 {
     _root = NULL;
 }
+
 BStarTree::BStarTree(vector<Block*> blockList)
 {
     _nodeList.push_back(new TNode(0));
     _root = _nodeList[0];
     for (size_t i = 1, end = blockList.size(); i < end; ++i) {
         _nodeList.push_back(new TNode(i));
-        /*
-        _nodeList[i]->_parent = _nodeList[i-1];
-        _nodeList[i-1]->_right = _nodeList[i];
-        */
         if (i % 2 == 0) {
             _nodeList[i]->_parent = _nodeList[i/2-1];
             assert(_nodeList[i/2-1]->_right == NULL);
@@ -63,18 +60,15 @@ BStarTree::~BStarTree()
 vector<BStarTree> BStarTree::perturb()
 {
     vector<BStarTree> trees;
-    size_t r = rand();
-    if (r % 5 == 0) {
+    size_t r = rand() % 10;
+    if (r < 2) {
         this->rotate(trees);
-        // cout << "rotate" << endl;
     }
-    else if (r % 5 <= 2) {
+    else if (r < 6) {
         this->swap(trees);
-        // cout << "swap" << endl;
     }
     else {
         this->delAndInsert(trees);
-        // cout << "del" << endl;
     }
     return trees;
 }
@@ -161,10 +155,11 @@ void BStarTree::swapNodes(int id1, int id2)
     int b_id1 = node1->getId();
     int b_id2 = node2->getId();
     bool orient1 = node1->getOrient();
-    node1->setOrient(node2->getOrient());
-    node1->setId(b_id1);
+    bool orient2 = node2->getOrient();
+    node1->setId(b_id2);
+    node2->setId(b_id1);
+    node1->setOrient(orient2);
     node2->setOrient(orient1);
-    node2->setId(b_id2);
 
     return;
 }

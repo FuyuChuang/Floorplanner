@@ -12,64 +12,6 @@
 #include "module.h"
 using namespace std;
 
-// Doubly-linked list node
-class LNode
-{
-    friend class Floorplanner;
-
-private:
-    // constructor and destructor
-    LNode(LNode* next = NULL) :
-        _next(next) { }
-    ~LNode()    { }
-
-    void setPos(size_t x, size_t y) {
-        _x = x; _y = y;
-    }
-
-    void insertNext(LNode* node) {
-        LNode* n = _next;
-        _next = node;
-        node->_next = n;
-    }
-
-    void deleteNext() {
-        _next = _next->_next;
-    }
-
-    LNode*      _next;      // next doubly-linked list node
-    size_t      _x;         // coordinate x
-    size_t      _y;         // coordinate y
-};
-/*
-class LNode
-{
-public:
-    LNode()     { }
-    ~LNode()    { }
-
-    size_t getX()   { return _x; }
-    size_t getY()   { return _y; }
-
-    void setPos(size_t x, size_t y) {
-        _x = x; _y = y;
-    }
-
-    void setY(size_t y) {
-        _y = y;
-    }
-
-    void setX(size_t x) {
-        _x = x;
-    }
-
-private:
-    size_t      _x;     // coordinate x
-    size_t      _y;     // cooridnate y
-};
-*/
-
-
 // B*-tree node
 class TNode
 {

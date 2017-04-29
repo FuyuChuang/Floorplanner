@@ -7,11 +7,41 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include <list>
+#include <climits>
 #include <map>
 #include "module.h"
 #include "bStarTree.h"
 using namespace std;
+
+// Linked list node
+class LNode
+{
+    friend class Floorplanner;
+
+private:
+    // constructor and destructor
+    LNode(LNode* next = NULL) :
+        _next(next) { }
+    ~LNode()    { }
+
+    void setPos(size_t x, size_t y) {
+        _x = x; _y = y;
+    }
+
+    void insertNext(LNode* node) {
+        LNode* n = _next;
+        _next = node;
+        node->_next = n;
+    }
+
+    void deleteNext() {
+        _next = _next->_next;
+    }
+
+    LNode*      _next;      // next linked list node
+    size_t      _x;         // coordinate x
+    size_t      _y;         // coordinate y
+};
 
 class Floorplanner
 {
@@ -21,6 +51,10 @@ public:
         _start(0), _stop(0) {
         readCircuit(inBlk, inNet);
         _bestTree = BStarTree(_blockList);
+        _maxLengthX = 0;
+        _maxLengthY = 0;
+        _minLengthX = INT_MAX;
+        _minLengthY = INT_MAX;
     }
     ~Floorplanner() { }
 
@@ -73,6 +107,15 @@ private:
     vector<Net*>        _netList;       // list of nets
 
     map<string, Terminal*>  _termName2Ptr;  // mapping from terminal name to its pointer
+
+    double              _avgArea;
+    double              _avgWire;
+    double              _maxLengthX;
+    double              _minLengthX;
+    double              _maxLengthY;
+    double              _minLengthY;
+    double              _lengthX;
+    double              _lengthY;
 
     // private member functions
     void packBlock(TNode* node, LNode* head);
