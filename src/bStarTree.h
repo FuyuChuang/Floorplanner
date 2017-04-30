@@ -8,7 +8,6 @@
 #define BSTARTREE_H
 
 #include <vector>
-#include <string>
 #include "module.h"
 using namespace std;
 

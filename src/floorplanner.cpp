@@ -9,7 +9,6 @@
 #include <sstream>
 #include <cassert>
 #include <climits>
-#include <iterator>
 #include <cmath>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -24,7 +23,7 @@ double Floorplanner::getHPWL() const
     for (size_t i = 0, end = _netList.size(); i < end; ++i) {
         HPWL += _netList[i]->calcHPWL();
     }
-    return (HPWL / 2.0);
+    return HPWL;
 }
 
 double Floorplanner::getCost(BStarTree& tree)
@@ -34,33 +33,12 @@ double Floorplanner::getCost(BStarTree& tree)
     size_t maxX = Block::getMaxX();
     size_t maxY = Block::getMaxY();
 
+    // fit in width is harder than fit in height...
     if (maxX > _width)
-        cost += 1.0e8 * (maxX - _width) / _lengthX;
+        cost += 1.0e10 * (maxX - _width) / _lengthX;
     if (maxY > _height)
         cost += 1.0e8 * (maxY - _height) / _lengthY;
-
-    /*
-    int outX = 0, outY = 0;
-    if (!this->checkFit()) {
-        if (maxX > _width && maxY > _height) {
-            outX = maxX;
-            outY = maxY;
-            cost += 1.0e8 * ((outX * outY) - (_width * _height)) / _avgArea;
-        }
-        else if (maxX > _width) {
-            outX = maxX - _width;
-            outY = _height - maxY;
-            cost += 1.0e8 * (outX * outY) / _avgArea;
-        }
-        else {
-            outX = _width - maxX;
-            outY = maxY - _height;
-            cost += 1.0e8 * (outX * outY) / _avgArea;
-        }
-        assert(outX >= 0 && outY >= 0);
-    }
-    */
-
+    // cost += 1.0e2 * ((maxX * maxY) - this->getModuleArea()) / _avgArea;
     // if (this->checkFit())
     // cost += 1.0e10 * abs((double(_width) / _height) - (double(maxX) / maxY));
 
@@ -111,97 +89,6 @@ void Floorplanner::floorplan()
     return;
 }
 
-BStarTree Floorplanner::floorplanSA()
-{
-    srand(time(NULL));
-
-    // setup trees and costs
-    // BStarTree prevTree = _bestTree;
-    // BStarTree tmpBestTree = _bestTree;
-    BStarTree prevTree = BStarTree(_blockList);
-    BStarTree tmpBestTree = BStarTree(_blockList);
-    double prevCost = this->getCost(prevTree);
-    double tmpBestCost = prevCost;
-
-    // setup parameters for annealing
-    double accArea = 0, accWire = 0;
-    _maxLengthX = _maxLengthY = 0;
-    _minLengthX = _minLengthY = INT_MAX;
-    for (size_t i = 0; i < 1000; ++i) {
-        vector<BStarTree> trees = prevTree.perturb();
-        prevTree = trees[0];
-        this->packTree(prevTree);
-        accArea += this->getArea();
-        accWire += this->getHPWL();
-        _maxLengthX = (_maxLengthX > Block::getMaxX())? _maxLengthX: Block::getMaxX();
-        _maxLengthY = (_maxLengthY > Block::getMaxY())? _maxLengthY: Block::getMaxY();
-        _minLengthX = (_minLengthX < Block::getMaxX())? _minLengthX: Block::getMaxX();
-        _minLengthY = (_minLengthY < Block::getMaxY())? _minLengthY: Block::getMaxY();
-    }
-    _avgArea = accArea / 1000;
-    _avgWire = accWire / 1000;
-    _lengthX = _maxLengthX - _minLengthX;
-    _lengthY = _maxLengthY - _minLengthY;
-    cout << fixed << _avgArea << " " << _avgWire << " " << _lengthX << " " << _lengthY << endl;
-
-    bool fit = this->checkFit();
-    double accCost = 0, acc = 0;
-    double r = 0.90, p = 0.98;
-    size_t P = _blockList.size() * 100;
-    for (size_t i = 0; i < 300; ++i) {
-        vector<BStarTree> trees = prevTree.perturb();
-        size_t best = this->selectBestTree(trees, fit);
-        if (this->checkFit())
-            fit = true;
-        double newCost = this->getCost(trees[best]);
-        double delta = newCost - prevCost;
-        if (delta > 0) {
-            accCost += delta;
-            acc += 1;
-        }
-        prevTree = trees[best];
-        prevCost = newCost;
-    }
-
-    double T = abs((accCost/acc) / log(p));
-
-    // simulated annealing
-    while (T > 1.0) {
-        // for each temperature, find P neighbors
-        for (size_t i = 0; i < P; ++i) {
-            vector<BStarTree> trees = prevTree.perturb();
-            size_t best = this->selectBestTree(trees, fit);
-            if (!fit && this->checkFit())
-                fit = true;
-            double newCost = this->getCost(trees[best]);
-            double delta = newCost - prevCost;
-            // downhill move
-            if (delta <= 0) {
-                prevTree = trees[best];
-                prevCost = newCost;
-                if (prevCost < tmpBestCost) {
-                    tmpBestTree = prevTree;
-                    tmpBestCost = prevCost;
-                }
-            }
-            // uphill move
-            else if (((double)rand() / RAND_MAX) < exp(-1 * delta / T)) {
-                prevTree = trees[best];
-                prevCost = newCost;
-            }
-            else {
-                // do not accept this neighbor tree
-            }
-        }
-        cout << fixed << setprecision(2) << "T = " << T << ", cost = " << tmpBestCost << "       \r";
-        cout.flush();
-        T *= r;
-    }
-
-    this->drawFloorplan(tmpBestTree);
-    return tmpBestTree;
-}
-
 void Floorplanner::packTree(BStarTree& tree)
 {
     _contourList.clear();
@@ -227,20 +114,16 @@ bool Floorplanner::checkFit()
 
 size_t Floorplanner::selectBestTree(vector<BStarTree>& trees, bool fit)
 {
-    //cout << "==================================" << endl;
     double bestCost = this->getCost(trees[0]);
     size_t best = 0;
-    //cout << bestCost << endl;
     for (size_t i = 1, end = trees.size(); i < end; ++i) {
         double cost = this->getCost(trees[i]);
-        //cout << cost << endl;
         if (fit && !this->checkFit()) continue;
         if (cost < bestCost) {
             cost = bestCost;
             best = i;
         }
     }
-    //cout << "==================================" << endl;
     return best;
 }
 
@@ -263,7 +146,6 @@ void Floorplanner::printSummary() const
 
 void Floorplanner::reportBlock() const
 {
-    // TODO: report position
     assert(_blockNum == _blockList.size());
     cout << "Number of blocks: " << _blockNum << endl;
     for (size_t i = 0, end = _blockList.size(); i < end; ++i) {
@@ -271,6 +153,7 @@ void Floorplanner::reportBlock() const
              << _blockList[i]->getWidth() << setw(6) << _blockList[i]->getHeight();
         cout << endl;
     }
+
     return;
 }
 
@@ -344,7 +227,6 @@ void Floorplanner::drawFloorplan(BStarTree& tree)
 {
     // opencv drawing
     // image(row, column, channel)
-    // Mat image(_height, _width, CV_8UC3);
     this->packTree(tree);
     Mat image;
     size_t maxY = (Block::getMaxY() > _height)? Block::getMaxY(): _height;
@@ -365,11 +247,6 @@ void Floorplanner::drawFloorplan(BStarTree& tree)
         size_t y2 = height - _blockList[i]->getY2();
         rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 255, 255), -1, 8);
         rectangle(image, Point(x1, y1), Point(x2, y2), Scalar(0, 128, 0), 3, 8);
-        /*
-        cout << _blockList[i]->getName() << " " << _blockList[i]->getX1() << " "
-             << _blockList[i]->getY1() << " " << _blockList[i]->getX2() << " "
-             << _blockList[i]->getY2() << endl;
-        */
         putText(image, _blockList[i]->getName(), Point(x1 + 3, y1 - 5), FONT_HERSHEY_COMPLEX, 1, Scalar(0, 128, 0));
     }
     if (!this->checkFit()) {
@@ -380,9 +257,98 @@ void Floorplanner::drawFloorplan(BStarTree& tree)
     return;
 }
 
+BStarTree Floorplanner::floorplanSA()
+{
+    srand(time(NULL));
+
+    // setup trees and costs
+    BStarTree prevTree = BStarTree(_blockList);
+    BStarTree tmpBestTree = BStarTree(_blockList);
+    double prevCost = this->getCost(prevTree);
+    double tmpBestCost = prevCost;
+
+    // setup parameters for annealing
+    double accArea = 0, accWire = 0;
+    _maxLengthX = _maxLengthY = 0;
+    _minLengthX = _minLengthY = INT_MAX;
+    for (size_t i = 0; i < 1000; ++i) {
+        vector<BStarTree> trees = prevTree.perturb();
+        prevTree = trees[0];
+        this->packTree(prevTree);
+        accArea += this->getArea();
+        accWire += this->getHPWL();
+        _maxLengthX = (_maxLengthX > Block::getMaxX())? _maxLengthX: Block::getMaxX();
+        _maxLengthY = (_maxLengthY > Block::getMaxY())? _maxLengthY: Block::getMaxY();
+        _minLengthX = (_minLengthX < Block::getMaxX())? _minLengthX: Block::getMaxX();
+        _minLengthY = (_minLengthY < Block::getMaxY())? _minLengthY: Block::getMaxY();
+    }
+    _avgArea = accArea / 1000;
+    _avgWire = accWire / 1000;
+    _lengthX = _maxLengthX - _minLengthX;
+    _lengthY = _maxLengthY - _minLengthY;
+
+    bool fit = this->checkFit();
+    double accCost = 0, acc = 0;
+    double r = 0.90, p = 0.98;
+    size_t P = _blockList.size() * 100;
+    for (size_t i = 0; i < 300; ++i) {
+        vector<BStarTree> trees = prevTree.perturb();
+        size_t best = this->selectBestTree(trees, fit);
+        if (this->checkFit())
+            fit = true;
+        double newCost = this->getCost(trees[best]);
+        double delta = newCost - prevCost;
+        if (delta > 0) {
+            accCost += delta;
+            acc += 1;
+        }
+        prevTree = trees[best];
+        prevCost = newCost;
+    }
+
+    double T = abs((accCost/acc) / log(p));
+    size_t count = 0;
+
+    // simulated annealing
+    while (T > 1.0) {
+        ++count;
+        // for each temperature, find P neighbors
+        for (size_t i = 0; i < P; ++i) {
+            vector<BStarTree> trees = prevTree.perturb();
+            size_t best = this->selectBestTree(trees, fit);
+            double newCost = this->getCost(trees[best]);
+            double delta = newCost - prevCost;
+            if (this->checkFit())
+                fit = true;
+            // downhill move
+            if (delta <= 0) {
+                prevTree = trees[best];
+                prevCost = newCost;
+                if (prevCost < tmpBestCost) {
+                    tmpBestTree = prevTree;
+                    tmpBestCost = prevCost;
+                }
+            }
+            // uphill move
+            else if (((double)rand() / RAND_MAX) < exp(-1 * delta / T)) {
+                prevTree = trees[best];
+                prevCost = newCost;
+            }
+            else {
+                // do not accept this neighbor tree
+            }
+        }
+        cout << fixed << setprecision(2) << "T = " << T << ", cost = " << tmpBestCost << "       \r";
+        cout.flush();
+        T *= r;
+    }
+
+    this->drawFloorplan(tmpBestTree);
+    return tmpBestTree;
+}
+
 void Floorplanner::packBlock(TNode* node, LNode* head)
 {
-    // cout << node->getId() << " ";
     Block* block = _blockList[node->getId()];
     size_t x = head->_x;
     size_t prevY = head->_y, maxY = head->_y;
@@ -496,4 +462,3 @@ void Floorplanner::readNet(fstream& inNet)
 
     return;
 }
-

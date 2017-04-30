@@ -78,7 +78,6 @@ public:
     // modify methods
     void readCircuit(fstream& inBlk, fstream& inNet);
     void floorplan();
-    BStarTree floorplanSA();
     void packTree(BStarTree& tree);
     bool checkFit();
     size_t selectBestTree(vector<BStarTree>& trees, bool fit);
@@ -108,6 +107,7 @@ private:
 
     map<string, Terminal*>  _termName2Ptr;  // mapping from terminal name to its pointer
 
+    // data members for computing cost
     double              _avgArea;
     double              _avgWire;
     double              _maxLengthX;
@@ -118,6 +118,7 @@ private:
     double              _lengthY;
 
     // private member functions
+    BStarTree floorplanSA();
     void packBlock(TNode* node, LNode* head);
 
     void readBlock(fstream& inBlk);

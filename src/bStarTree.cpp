@@ -183,7 +183,7 @@ void BStarTree::deleteNode(int id)
                     node->_parent->_right = NULL;
                 }
                 else {
-                    cerr << "Error 1" << endl;
+                    assert(0);
                 }
                 node->_parent = NULL;
                 break;
@@ -197,7 +197,7 @@ void BStarTree::deleteNode(int id)
                     node->_parent->_right = node->_right;
                 }
                 else {
-                    cerr << "Error 2" << endl;
+                    assert(0);
                 }
                 node->_parent = NULL;
                 node->_right = NULL;
@@ -212,7 +212,7 @@ void BStarTree::deleteNode(int id)
                     node->_parent->_right = node->_left;
                 }
                 else {
-                    cerr << "Error 3" << endl;
+                    assert(0);
                 }
                 node->_parent = NULL;
                 node->_left = NULL;
@@ -243,14 +243,13 @@ void BStarTree::deleteNode(int id)
                     p->_right = l;
                 }
                 else {
-                    cerr << "Error 4" << endl;
+                    assert(0);
                 }
             }
         }
         else {
             if (node->_left == NULL && node->_right == NULL) {
-                cout << "Not possible" << endl;
-                break;
+                assert(0);
             }
             else if (node->_left == NULL) {
                 node->_right->_parent = node->_parent;

@@ -86,7 +86,7 @@ public:
     void addTerm(Terminal* term) { _termList.push_back(term); }
 
     // other member functions
-    size_t calcHPWL();
+    double calcHPWL();
 
 private:
     vector<Terminal*>   _termList;  // list of terminals the net is connected to

@@ -24,7 +24,7 @@ size_t Block::_maxY = 0;
 /*************************************/
 /*    class Net member functions     */
 /*************************************/
-size_t Net::calcHPWL()
+double Net::calcHPWL()
 {
     size_t minX = INT_MAX, minY = INT_MAX, maxX = 0, maxY = 0;
     for (size_t i = 0, end = _termList.size(); i < end; ++i) {
@@ -35,5 +35,5 @@ size_t Net::calcHPWL()
         maxX = (x > maxX)? x: maxX;
         maxY = (y > maxY)? y: maxY;
     }
-    return (maxX - minX) + (maxY - minY);
+    return ((maxX - minX) + (maxY - minY)) / 2.0;
 }
